@@ -1,0 +1,11 @@
+[project]
+name = "tax_payer"
+version = "0.1.0"
+description = "Tax payer project"
+requires-python = ">=3.8"
+dependencies = [
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
+    "lxml>=4.9.0",
+    "xmlschema>=2.0.0",
+]
