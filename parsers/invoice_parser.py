@@ -27,6 +27,7 @@ class ParsedInvoice:
     customer_ico: Optional[str]
     customer_dic: Optional[str]
     customer_name: Optional[str]
+    taxpayer_dic: Optional[str]
     lines: List[ParsedLine]
 
 
@@ -44,17 +45,33 @@ class InvoiceParser:
         lines_raw: List[Dict[str, Any]] = invoice.get("lines", []) or []
         lines = [InvoiceParser._parse_line(l) for l in lines_raw]
 
+        # Extract taxpayer DIC from invoice (dic field is the taxpayer's DIC)
+        taxpayer_dic = invoice.get("dic")
+        
+        # Extract VAT amount from vat_rates_summary.vat
+        vat_rates_summary = invoice.get("vat_rates_summary")
+        if isinstance(vat_rates_summary, list):
+            # Sum up VAT from all entries in the list
+            vat_amount = sum(float(entry.get("vat", 0) or 0) for entry in vat_rates_summary if isinstance(entry, dict))
+        elif isinstance(vat_rates_summary, dict):
+            vat_amount = float(vat_rates_summary.get("vat", 0) or 0)
+        else:
+            # Fallback to total_vat if vat_rates_summary is not available
+            vat_amount = float(invoice.get("total_vat", 0) or 0)
+
         return ParsedInvoice(
             invoice_number=str(invoice.get("number") or invoice.get("id")),
             issue_date=issued_on or datetime.min,
             taxable_supply_date=taxable_supply_date,
             total=float(invoice.get("total", 0) or 0),
             vat_base=float(invoice.get("subtotal", 0) or 0),
-            vat_amount=float(invoice.get("total_vat", 0) or 0),
+            vat_amount=vat_amount,
             vat_rate=InvoiceParser._extract_vat_rate(lines),
             customer_ico=(invoice.get("subject") or {}).get("ico"),
-            customer_dic=(invoice.get("subject") or {}).get("dic"),
+            customer_dic=invoice.get("client_registration_no"),
             customer_name=(invoice.get("subject") or {}).get("name"),
+
+            taxpayer_dic=taxpayer_dic,
             lines=lines,
         )
 

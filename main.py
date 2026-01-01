@@ -32,6 +32,7 @@ def fetch_and_parse_invoices(
     period_to: date,
 ) -> List[ParsedInvoice]:
     raw = client.iter_invoices(since=period_from, until=period_to, status="paid")
+    #logger.info(f"Fetched {raw} invoices")
     parser = InvoiceParser()
     return [parser.parse(inv) for inv in raw]
 
@@ -52,12 +53,45 @@ def generate_xml(
 
     period_tag = period_from.strftime("%Y%m")
 
-    dph_gen = DPHGenerator(taxpayer_ico, taxpayer_dic, taxpayer_name)
+    dph_gen = DPHGenerator(
+        taxpayer_ico=taxpayer_ico,
+        taxpayer_dic=taxpayer_dic,
+        taxpayer_name=taxpayer_name,
+        taxpayer_title=os.getenv("TAXPAYER_TITLE", ""),
+        taxpayer_first_name=os.getenv("TAXPAYER_FIRST_NAME", ""),
+        taxpayer_last_name=os.getenv("TAXPAYER_LAST_NAME", ""),
+        taxpayer_street=os.getenv("TAXPAYER_STREET", ""),
+        taxpayer_house_number=os.getenv("TAXPAYER_HOUSE_NUMBER", ""),
+        taxpayer_house_number_pop=os.getenv("TAXPAYER_HOUSE_NUMBER_POP", ""),
+        taxpayer_city=os.getenv("TAXPAYER_CITY", ""),
+        taxpayer_zip=os.getenv("TAXPAYER_ZIP", ""),
+        taxpayer_email=os.getenv("TAXPAYER_EMAIL", ""),
+        taxpayer_phone=os.getenv("TAXPAYER_PHONE", ""),
+        taxpayer_ufo=os.getenv("TAXPAYER_UFO", "451"),
+        taxpayer_pracufo=os.getenv("TAXPAYER_PRACUFO", "2002"),
+        taxpayer_okec=os.getenv("TAXPAYER_OKEC", "631000"),
+    )
     dph_tree = dph_gen.build_tree(invoices, period_from, period_to)
     dph_path = out_dir / f"dph_{period_tag}.xml"
     dph_gen.save(dph_tree, str(dph_path))
 
-    dhk_gen = DHKGenerator(taxpayer_ico, taxpayer_dic, taxpayer_name)
+    dhk_gen = DHKGenerator(
+        taxpayer_ico=taxpayer_ico,
+        taxpayer_dic=taxpayer_dic,
+        taxpayer_name=taxpayer_name,
+        taxpayer_title=os.getenv("TAXPAYER_TITLE", ""),
+        taxpayer_first_name=os.getenv("TAXPAYER_FIRST_NAME", ""),
+        taxpayer_last_name=os.getenv("TAXPAYER_LAST_NAME", ""),
+        taxpayer_street=os.getenv("TAXPAYER_STREET", ""),
+        taxpayer_house_number=os.getenv("TAXPAYER_HOUSE_NUMBER", ""),
+        taxpayer_house_number_pop=os.getenv("TAXPAYER_HOUSE_NUMBER_POP", ""),
+        taxpayer_city=os.getenv("TAXPAYER_CITY", ""),
+        taxpayer_zip=os.getenv("TAXPAYER_ZIP", ""),
+        taxpayer_email=os.getenv("TAXPAYER_EMAIL", ""),
+        taxpayer_phone=os.getenv("TAXPAYER_PHONE", ""),
+        taxpayer_ufo=os.getenv("TAXPAYER_UFO", "451"),
+        taxpayer_pracufo=os.getenv("TAXPAYER_PRACUFO", "2002"),
+    )
     dhk_tree = dhk_gen.build_tree(invoices, period_from, period_to)
     dhk_path = out_dir / f"dhk_{period_tag}.xml"
     dhk_gen.save(dhk_tree, str(dhk_path))
