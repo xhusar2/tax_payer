@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import logging
 import os
 from datetime import date, datetime
@@ -65,12 +66,31 @@ def generate_xml(
 
 
 def main() -> None:
-    # Default: last calendar month
-    now = datetime.now()
-    last_month = now.month - 1 or 12
-    year = now.year if now.month > 1 else now.year - 1
+    parser = argparse.ArgumentParser(description="Generate tax XML files")
+    parser.add_argument(
+        "--year",
+        type=int,
+        default=None,
+        help="Year (default: current year or previous if month is December)",
+    )
+    parser.add_argument(
+        "--month",
+        type=int,
+        default=None,
+        help="Month 1-12 (default: last calendar month)",
+    )
+    args = parser.parse_args()
 
-    period_from, period_to = _month_range(year, last_month)
+    now = datetime.now()
+    if args.month is not None:
+        month = args.month
+        year = args.year if args.year is not None else now.year
+    else:
+        # Default: last calendar month
+        month = now.month - 1 or 12
+        year = now.year if now.month > 1 else now.year - 1
+
+    period_from, period_to = _month_range(year, month)
     logger.info(f"Processing tax period: {period_from} to {period_to}")
 
     client = FakturoidClient()
