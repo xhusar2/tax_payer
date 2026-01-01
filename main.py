@@ -7,7 +7,16 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import List
 
-from config.settings import OUTPUT_DIR
+from config.settings import (
+    OUTPUT_DIR,
+    EMAIL_SMTP_HOST,
+    EMAIL_SMTP_PORT,
+    EMAIL_SMTP_USER,
+    EMAIL_SMTP_PASSWORD,
+    EMAIL_SMTP_USE_TLS,
+    EMAIL_RECIPIENT,
+)
+from email_sender import send_xml_files
 from fakturoid.client import FakturoidClient
 from parsers.invoice_parser import InvoiceParser, ParsedInvoice
 from xml_generators.dph_generator import DPHGenerator
@@ -113,6 +122,11 @@ def main() -> None:
         default=None,
         help="Month 1-12 (default: last calendar month)",
     )
+    parser.add_argument(
+        "--send-email",
+        action="store_true",
+        help="Send generated XML files via email",
+    )
     args = parser.parse_args()
 
     now = datetime.now()
@@ -134,6 +148,24 @@ def main() -> None:
     dph_path, dhk_path = generate_xml(invoices, period_from, period_to)
     logger.info(f"DPH XML: {dph_path}")
     logger.info(f"DHK XML: {dhk_path}")
+
+    if args.send_email:
+        if not EMAIL_RECIPIENT:
+            logger.error("EMAIL_RECIPIENT not configured, cannot send email")
+        elif not EMAIL_SMTP_HOST:
+            logger.error("EMAIL_SMTP_HOST not configured, cannot send email")
+        else:
+            success = send_xml_files(
+                files=[dph_path, dhk_path],
+                recipient=EMAIL_RECIPIENT,
+                smtp_host=EMAIL_SMTP_HOST,
+                smtp_port=EMAIL_SMTP_PORT,
+                smtp_user=EMAIL_SMTP_USER,
+                smtp_password=EMAIL_SMTP_PASSWORD,
+                smtp_use_tls=EMAIL_SMTP_USE_TLS,
+            )
+            if not success:
+                logger.error("Failed to send email")
 
 
 if __name__ == "__main__":

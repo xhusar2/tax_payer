@@ -25,4 +25,12 @@ BANK_API_KEY = os.getenv("BANK_API_KEY", "")
 # Output
 OUTPUT_DIR = os.getenv("OUTPUT_DIR", "./output")
 
+# Email settings
+EMAIL_SMTP_HOST = os.getenv("EMAIL_SMTP_HOST", "")
+EMAIL_SMTP_PORT = int(os.getenv("EMAIL_SMTP_PORT", "587"))
+EMAIL_SMTP_USER = os.getenv("EMAIL_SMTP_USER", "")
+EMAIL_SMTP_PASSWORD = os.getenv("EMAIL_SMTP_PASSWORD", "")
+EMAIL_SMTP_USE_TLS = os.getenv("EMAIL_SMTP_USE_TLS", "true").lower() == "true"
+EMAIL_RECIPIENT = os.getenv("EMAIL_RECIPIENT", "")
+
 

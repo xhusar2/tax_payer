@@ -52,6 +52,14 @@ BANK_ACCOUNT_NUMBER=optional
 BANK_API_KEY=optional
 
 OUTPUT_DIR=./output
+
+# Email settings (for automated monthly reports)
+EMAIL_SMTP_HOST=smtp.gmail.com
+EMAIL_SMTP_PORT=587
+EMAIL_SMTP_USER=your-email@gmail.com
+EMAIL_SMTP_PASSWORD=your-app-password
+EMAIL_SMTP_USE_TLS=true
+EMAIL_RECIPIENT=your-email@gmail.com
 ```
 
 Run:
@@ -66,10 +74,37 @@ Or specify a specific month/year:
 python main.py --month 10 --year 2024
 ```
 
+To send generated XML files via email:
+
+```bash
+python main.py --send-email
+```
+
 By default it:
 - takes last calendar month as the period,
 - fetches paid invoices from Fakturoid for that period,
 - writes `dph_YYYYMM.xml` and `dhk_YYYYMM.xml` into `OUTPUT_DIR`.
+
+## Automated Monthly Reports (Cron)
+
+To automatically generate and email XML files on the 1st of every month:
+
+1. Edit your crontab:
+```bash
+crontab -e
+```
+
+2. Add this line (runs on 1st of every month at 2 AM):
+```bash
+0 2 1 * * cd /home/rhusar/projects/tax_payer && /path/to/venv/bin/python main.py --send-email >> /var/log/tax_payer.log 2>&1
+```
+
+Replace `/path/to/venv/bin/python` with your actual Python path (find it with `which python` from your venv).
+
+**For Gmail:**
+- Use an App Password (not your regular password)
+- Go to: Google Account → Security → 2-Step Verification → App passwords
+- Generate an app password and use it for `EMAIL_SMTP_PASSWORD`
 
 The DHK XML format matches the official Finanční správa DPHKH1 schema.
 The DPH XML format is intentionally simple and not 1:1 with FS schemas yet.
