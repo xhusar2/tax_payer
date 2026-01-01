@@ -96,19 +96,13 @@ crontab -e
 
 2. Add this line (runs on 1st of every month at 2 AM):
 ```bash
-0 2 1 * * cd /home/rhusar/projects/tax_payer && /path/to/venv/bin/python main.py --send-email >> /var/log/tax_payer.log 2>&1
+0 2 1 * * cd /path/to/project/tax_payer && /path/to/venv/bin/python main.py --send-email >> /var/log/tax_payer.log 2>&1
 ```
 
 Replace `/path/to/venv/bin/python` with your actual Python path (find it with `which python` from your venv).
 
 **For Gmail:**
-- Use an App Password (not your regular password)
+- Use an App Password 
 - Go to: Google Account → Security → 2-Step Verification → App passwords
 - Generate an app password and use it for `EMAIL_SMTP_PASSWORD`
-
-The DHK XML format matches the official Finanční správa DPHKH1 schema.
-The DPH XML format is intentionally simple and not 1:1 with FS schemas yet.
-Once you download the official XSDs for DPH we can tighten
-element names and add validation using `xmlschema`.
-
 
