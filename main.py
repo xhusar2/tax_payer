@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from datetime import date, datetime
 from pathlib import Path
@@ -10,6 +11,8 @@ from fakturoid.client import FakturoidClient
 from parsers.invoice_parser import InvoiceParser, ParsedInvoice
 from xml_generators.dph_generator import DPHGenerator
 from xml_generators.dhk_generator import DHKGenerator
+
+logger = logging.getLogger(__name__)
 
 
 def _month_range(year: int, month: int) -> tuple[date, date]:
@@ -68,16 +71,22 @@ def main() -> None:
     year = now.year if now.month > 1 else now.year - 1
 
     period_from, period_to = _month_range(year, last_month)
+    logger.info(f"Processing tax period: {period_from} to {period_to}")
 
     client = FakturoidClient()
     invoices = fetch_and_parse_invoices(client, period_from, period_to)
+    logger.info(f"Fetched {len(invoices)} invoices")
 
     dph_path, dhk_path = generate_xml(invoices, period_from, period_to)
-    print(f"DPH XML: {dph_path}")
-    print(f"DHK XML: {dhk_path}")
+    logger.info(f"DPH XML: {dph_path}")
+    logger.info(f"DHK XML: {dhk_path}")
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
     main()
 
 
