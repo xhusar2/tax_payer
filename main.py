@@ -40,8 +40,8 @@ def fetch_and_parse_invoices(
     period_from: date,
     period_to: date,
 ) -> List[ParsedInvoice]:
-    raw = client.iter_invoices(since=period_from, until=period_to, status="paid")
-    #logger.info(f"Fetched {raw} invoices")
+    raw = client.iter_invoices(since=period_from, until=period_to)
+    logger.info(f"Fetched {raw} invoices")
     parser = InvoiceParser()
     return [parser.parse(inv) for inv in raw]
 
@@ -170,7 +170,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
     main()

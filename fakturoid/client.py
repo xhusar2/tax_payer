@@ -83,7 +83,7 @@ class FakturoidClient:
         self,
         since: Optional[date] = None,
         until: Optional[date] = None,
-        status: str = "paid",
+        #status: str = "paid",
         page: int = 1,
     ) -> List[Dict[str, Any]]:
         """
@@ -91,8 +91,8 @@ class FakturoidClient:
         You can loop over pages while response is non-empty.
         """
         params: Dict[str, Any] = {"page": page}
-        if status:
-            params["status"] = status
+        #if status:
+        #    params["status"] = status
         if since:
             params["since"] = since.isoformat()
         if until:
@@ -115,7 +115,7 @@ class FakturoidClient:
         self,
         since: Optional[date] = None,
         until: Optional[date] = None,
-        status: str = "paid",
+        #status: str = "paid",
     ) -> List[Dict[str, Any]]:
         """
         Convenience: pull all pages into one list.
@@ -124,7 +124,7 @@ class FakturoidClient:
         page = 1
         all_invoices: List[Dict[str, Any]] = []
         while True:
-            chunk = self.list_invoices(since=since, until=until, status=status, page=page)
+            chunk = self.list_invoices(since=since, until=until, page=page)
             if not chunk:
                 break
             all_invoices.extend(chunk)
