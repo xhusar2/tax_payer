@@ -18,6 +18,7 @@ from config.settings import (
 )
 from email_sender import send_xml_files
 from fakturoid.client import FakturoidClient
+from parsers.expense_parser import ExpenseParser, ParsedExpense
 from parsers.invoice_parser import InvoiceParser, ParsedInvoice
 from xml_generators.dph_generator import DPHGenerator
 from xml_generators.dhk_generator import DHKGenerator
@@ -41,13 +42,36 @@ def fetch_and_parse_invoices(
     period_to: date,
 ) -> List[ParsedInvoice]:
     raw = client.iter_invoices(since=period_from, until=period_to)
-    logger.info(f"Fetched {raw} invoices")
+    logger.info(f"Fetched {len(raw)} invoices")
     parser = InvoiceParser()
     return [parser.parse(inv) for inv in raw]
 
 
+def fetch_and_parse_expenses(
+    client: FakturoidClient,
+    period_from: date,
+    period_to: date,
+) -> List[ParsedExpense]:
+    raw = client.iter_expenses_for_tax_month(period_from, period_to)
+    ep = ExpenseParser()
+    out: List[ParsedExpense] = []
+    for row in raw:
+        exp = ep.parse(row)
+        reason = ep.exclusion_reason(exp, period_from, period_to)
+        if reason:
+            logger.info(
+                "Skipping expense %s: %s",
+                exp.number or exp.evidence_number,
+                reason,
+            )
+            continue
+        out.append(exp)
+    return out
+
+
 def generate_xml(
     invoices: List[ParsedInvoice],
+    expenses: List[ParsedExpense],
     period_from: date,
     period_to: date,
 ) -> tuple[Path, Path]:
@@ -80,7 +104,7 @@ def generate_xml(
         taxpayer_pracufo=os.getenv("TAXPAYER_PRACUFO", "2002"),
         taxpayer_okec=os.getenv("TAXPAYER_OKEC", "631000"),
     )
-    dph_tree = dph_gen.build_tree(invoices, period_from, period_to)
+    dph_tree = dph_gen.build_tree(invoices, period_from, period_to, expenses)
     dph_path = out_dir / f"dph_{period_tag}.xml"
     dph_gen.save(dph_tree, str(dph_path))
 
@@ -101,7 +125,7 @@ def generate_xml(
         taxpayer_ufo=os.getenv("TAXPAYER_UFO", "451"),
         taxpayer_pracufo=os.getenv("TAXPAYER_PRACUFO", "2002"),
     )
-    dhk_tree = dhk_gen.build_tree(invoices, period_from, period_to)
+    dhk_tree = dhk_gen.build_tree(invoices, period_from, period_to, expenses)
     dhk_path = out_dir / f"dhk_{period_tag}.xml"
     dhk_gen.save(dhk_tree, str(dhk_path))
 
@@ -143,9 +167,15 @@ def main() -> None:
 
     client = FakturoidClient()
     invoices = fetch_and_parse_invoices(client, period_from, period_to)
-    logger.info(f"Fetched {len(invoices)} invoices")
 
-    dph_path, dhk_path = generate_xml(invoices, period_from, period_to)
+    expenses = fetch_and_parse_expenses(client, period_from, period_to)
+    logger.info(
+        "Included %s paid expense(s) for %s (month from issue date → DUZP → received)",
+        len(expenses),
+        period_from.strftime("%Y-%m"),
+    )
+
+    dph_path, dhk_path = generate_xml(invoices, expenses, period_from, period_to)
     logger.info(f"DPH XML: {dph_path}")
     logger.info(f"DHK XML: {dhk_path}")
 

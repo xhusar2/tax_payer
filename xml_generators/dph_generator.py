@@ -3,11 +3,13 @@ from __future__ import annotations
 import hashlib
 import os
 from datetime import date, datetime
-from typing import Iterable, Optional
+from typing import Iterable, List, Optional
 
 from lxml import etree
 
+from parsers.expense_parser import ParsedExpense
 from parsers.invoice_parser import ParsedInvoice
+from xml_generators.czk import czk_ceil_tax, czk_round
 
 
 class DPHGenerator:
@@ -60,6 +62,7 @@ class DPHGenerator:
         invoices: Iterable[ParsedInvoice],
         period_from: date,
         period_to: date,
+        expenses: Optional[Iterable[ParsedExpense]] = None,
     ) -> etree._ElementTree:
         # Get taxpayer_dic from first invoice if available
         invoice_list = list(invoices)
@@ -150,23 +153,64 @@ class DPHGenerator:
         for inv in invoice_list:
             total_base += inv.vat_base
             total_vat += inv.vat_amount
+
+        expense_list: List[ParsedExpense] = list(expenses or [])
+        exp_base_21 = sum(e.base_21 for e in expense_list)
+        exp_vat_21 = sum(e.vat_21 for e in expense_list)
+        exp_base_12 = sum(e.base_12 for e in expense_list)
+        exp_vat_12 = sum(e.vat_12 for e in expense_list)
+        input_vat_total = exp_vat_21 + exp_vat_12
         
-        # Veta1 - Totals (rounded, no decimals)
-        obrat23 = f"{int(round(total_base))}"
-        dan23 = f"{int(round(total_vat))}"
+        # Veta1 - Totals (whole CZK; daň rounded up)
+        obrat23 = f"{czk_round(total_base)}"
+        dan23 = f"{czk_ceil_tax(total_vat)}"
         veta1 = etree.SubElement(
             dphdp3,
             "Veta1",
             dan23=dan23,
             obrat23=obrat23,
         )
-        
-        # Veta6 - Additional totals
-        dan_zocelk = f"{int(round(total_vat))}"
+
+        # Veta4 - nárok na odpočet (ř. 40–46): přijatá plnění tuzemsko
+        odp_r40 = czk_ceil_tax(exp_vat_21) if exp_vat_21 else 0
+        odp_r41 = czk_ceil_tax(exp_vat_12) if exp_vat_12 else 0
+        # ř. 42–45 odpočet „V plné výši“ (jen pokud někdy doplníte dovoz / ZDP / §75)
+        odp_r42 = odp_r43 = odp_r44 = odp_r45 = 0
+        odp_sum_nar = odp_r40 + odp_r41 + odp_r42 + odp_r43 + odp_r44 + odp_r45
+        odp_sum_kr = 0
+
+        veta4_attrs: dict[str, str] = {}
+        if exp_base_21 or odp_r40:
+            veta4_attrs["pln23"] = f"{czk_round(exp_base_21)}"
+            if odp_r40:
+                veta4_attrs["odp_tuz23_nar"] = f"{odp_r40}"
+        if exp_base_12 or odp_r41:
+            veta4_attrs["pln5"] = f"{czk_round(exp_base_12)}"
+            if odp_r41:
+                veta4_attrs["odp_tuz5_nar"] = f"{odp_r41}"
+        if odp_sum_nar or odp_sum_kr:
+            veta4_attrs["odp_sum_nar"] = f"{odp_sum_nar}"
+            veta4_attrs["odp_sum_kr"] = f"{odp_sum_kr}"
+        if veta4_attrs:
+            etree.SubElement(dphdp3, "Veta4", **veta4_attrs)
+
+        # ř. 52 / 53 (Veta5) a ř. 60 – jen pokud uplatňujete krácení / vypořádání / úpravu odpočtu
+        odp_r52 = 0
+        odp_r53 = 0
+        odp_r60 = 0
+
+        # Veta6 - ř. 62–65 (ř. 63 = ř.46 V plné výši + 52 + 53 + 60)
+        out_vat = czk_ceil_tax(total_vat)
+        in_vat = odp_sum_nar + odp_r52 + odp_r53 + odp_r60
+        dan_zocelk = str(out_vat)
+        odp_zocelk = str(in_vat)
         dano = "0"
-        dano_da = f"{int(round(total_vat))}"
-        dano_no = "0"
-        odp_zocelk = "0"
+        if out_vat >= in_vat:
+            dano_da = str(out_vat - in_vat)
+            dano_no = "0"
+        else:
+            dano_da = "0"
+            dano_no = str(in_vat - out_vat)
         veta6 = etree.SubElement(
             dphdp3,
             "Veta6",

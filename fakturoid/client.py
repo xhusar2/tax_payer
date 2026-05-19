@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -131,4 +131,60 @@ class FakturoidClient:
             page += 1
         return all_invoices
 
+    def list_expenses(
+        self,
+        since: Optional[date] = None,
+        until: Optional[date] = None,
+        status: str = "paid",
+        page: int = 1,
+    ) -> List[Dict[str, Any]]:
+        params: Dict[str, Any] = {"page": page}
+        if status:
+            params["status"] = status
+        if since:
+            params["since"] = since.isoformat()
+        if until:
+            params["until"] = until.isoformat()
+        headers = {**self.session.headers, **self._auth_headers()}
+        resp = self.session.get(
+            self._url("/expenses.json"),
+            headers=headers,
+            params=params,
+            timeout=30,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        if not isinstance(data, list):
+            raise RuntimeError(f"Unexpected expenses response: {data!r}")
+        return data
+
+    def iter_expenses(
+        self,
+        since: Optional[date] = None,
+        until: Optional[date] = None,
+        status: str = "paid",
+    ) -> List[Dict[str, Any]]:
+        page = 1
+        all_rows: List[Dict[str, Any]] = []
+        while True:
+            chunk = self.list_expenses(since=since, until=until, status=status, page=page)
+            if not chunk:
+                break
+            all_rows.extend(chunk)
+            page += 1
+        return all_rows
+
+    def iter_expenses_for_tax_month(
+        self,
+        period_from: date,
+        period_to: date,
+        status: str = "paid",
+    ) -> List[Dict[str, Any]]:
+        """
+        Widen the API window (since/until are not reliably `received_on` on the API).
+        Caller filters by received_on / tax dates.
+        """
+        since = period_from - timedelta(days=120)
+        until = period_to + timedelta(days=45)
+        return self.iter_expenses(since=since, until=until, status=status)
 

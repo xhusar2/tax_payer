@@ -1,9 +1,9 @@
 # tax_payer
 
 Tooling for:
-- pulling invoices from Fakturoid,
+- pulling **issued invoices** and **paid expenses (náklady)** from Fakturoid (incl. documents from *Krabice na náklady* once posted as expenses),
 - parsing them into a VAT‑centric model,
-- generating XML for DPH and kontrolní hlášení (DHK).
+- generating XML for DPH and kontrolní hlášení (DHK) with **output VAT** from invoices and **input VAT / KH řádky B** from eligible expenses.
 
 This is deliberately minimal and focused; you can wire it into cron, CI,
 or run manually once a month.
@@ -82,8 +82,14 @@ python main.py --send-email
 
 By default it:
 - takes last calendar month as the period,
-- fetches paid invoices from Fakturoid for that period,
+- fetches invoices from Fakturoid for that period (`since`/`until` on issued invoices),
+- fetches **paid** expenses in a widened API window and assigns each to a month by **`issued_on`**, else **`taxable_fulfillment_due` (DUZP)**, else **`received_on`** (so an April invoice is not dropped when Fakturoid přijetí/DUZP is set in May),
+- includes only expenses suitable for full odpočet: `tax_deductible`, no **přenesená daňová povinnost**, `proportional_vat_deduction == 100%`, `status=paid`,
 - writes `dph_YYYYMM.xml` and `dhk_YYYYMM.xml` into `OUTPUT_DIR`.
+
+**KH:** expenses **> 10 000 Kč incl. VAT** with supplier DIČ → `VetaB2`; others → aggregated `VetaB3`. Expenses over 10k **without** DIČ are logged and omitted from B2/B3 (fix supplier in Fakturoid); they still flow into **DPH** odpočet totals if VAT lines were parsed.
+
+Validate generated XML against the current MF XSD before filing.
 
 ## Automated Monthly Reports (Cron)
 
