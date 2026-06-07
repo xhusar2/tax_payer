@@ -48,6 +48,7 @@ class FakturoidClient:
 
         self._access_token: Optional[str] = None
         self._token_type: str = "Bearer"
+        self._subject_cache: Dict[int, Dict[str, Any]] = {}
 
     def _url(self, path: str) -> str:
         return f"{self.BASE_URL}/accounts/{self.slug}{path}"
@@ -174,6 +175,37 @@ class FakturoidClient:
             page += 1
         return all_rows
 
+    def get_subject(self, subject_id: int) -> Dict[str, Any]:
+        if subject_id in self._subject_cache:
+            return self._subject_cache[subject_id]
+        headers = {**self.session.headers, **self._auth_headers()}
+        resp = self.session.get(
+            self._url(f"/subjects/{subject_id}.json"),
+            headers=headers,
+            timeout=30,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        if not isinstance(data, dict):
+            raise RuntimeError(f"Unexpected subject response: {data!r}")
+        self._subject_cache[subject_id] = data
+        return data
+
+    def enrich_expense_supplier_dic(self, expense: Dict[str, Any]) -> Dict[str, Any]:
+        """Copy supplier DIČ from linked subject when the expense row has none."""
+        if expense.get("supplier_vat_no"):
+            return expense
+        subject_id = expense.get("subject_id")
+        if not subject_id:
+            return expense
+        subject = self.get_subject(int(subject_id))
+        vat_no = subject.get("vat_no")
+        if not vat_no:
+            return expense
+        enriched = dict(expense)
+        enriched["_subject_vat_no"] = vat_no
+        return enriched
+
     def iter_expenses_for_tax_month(
         self,
         period_from: date,
@@ -181,8 +213,8 @@ class FakturoidClient:
         status: str = "paid",
     ) -> List[Dict[str, Any]]:
         """
-        Widen the API window (since/until are not reliably `received_on` on the API).
-        Caller filters by received_on / tax dates.
+        Widen the API window (since/until filter Fakturoid created_at).
+        Caller filters by taxable_fulfillment_due (DUZP).
         """
         since = period_from - timedelta(days=120)
         until = period_to + timedelta(days=45)

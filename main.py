@@ -56,7 +56,7 @@ def fetch_and_parse_expenses(
     ep = ExpenseParser()
     out: List[ParsedExpense] = []
     for row in raw:
-        exp = ep.parse(row)
+        exp = ep.parse(client.enrich_expense_supplier_dic(row))
         reason = ep.exclusion_reason(exp, period_from, period_to)
         if reason:
             logger.info(
@@ -170,7 +170,7 @@ def main() -> None:
 
     expenses = fetch_and_parse_expenses(client, period_from, period_to)
     logger.info(
-        "Included %s paid expense(s) for %s (month from issue date → DUZP → received)",
+        "Included %s paid expense(s) for %s (by DUZP only)",
         len(expenses),
         period_from.strftime("%Y-%m"),
     )

@@ -26,12 +26,9 @@ class ParsedExpense:
     status: str
 
     def dppd_for_kh(self) -> datetime:
-        return (
-            self.taxable_supply_date
-            or self.issued_on
-            or self.received_on
-            or datetime.min
-        )
+        if self.taxable_supply_date:
+            return self.taxable_supply_date
+        return datetime.min
 
 
 class ExpenseParser:
@@ -43,7 +40,11 @@ class ExpenseParser:
         tfd = ExpenseParser._parse_date(expense.get("taxable_fulfillment_due"))
         received = ExpenseParser._parse_date(expense.get("received_on"))
 
-        raw_dic = expense.get("supplier_vat_no") or ""
+        raw_dic = (
+            expense.get("supplier_vat_no")
+            or expense.get("_subject_vat_no")
+            or ""
+        )
         supplier_dic = ExpenseParser._normalize_dic(str(raw_dic) if raw_dic else "")
 
         ev = expense.get("original_number") or expense.get("number") or expense.get("id")
@@ -133,14 +134,9 @@ class ExpenseParser:
 
     @staticmethod
     def canonical_tax_period_date(exp: ParsedExpense) -> Optional[date]:
-        """
-        One date per expense for month assignment (avoids counting twice when
-        issue date is April but Fakturoid přijetí/DUZP is filled in May).
-        Priority: issued_on → taxable_fulfillment_due → received_on.
-        """
-        for dt in (exp.issued_on, exp.taxable_supply_date, exp.received_on):
-            if dt:
-                return dt.date()
+        """Month bucket for DPH/KH — taxable_fulfillment_due (DUZP) only."""
+        if exp.taxable_supply_date:
+            return exp.taxable_supply_date.date()
         return None
 
     @staticmethod
@@ -158,10 +154,10 @@ class ExpenseParser:
         if not ExpenseParser.in_tax_period(exp, period_from, period_to):
             d = ExpenseParser.canonical_tax_period_date(exp)
             if d is None:
-                return "missing issued_on, taxable_fulfillment_due, and received_on"
+                return "missing taxable_fulfillment_due (DUZP)"
             return (
-                f"assigned to {d.isoformat()} (issue → DUZP → received), "
-                f"outside {period_from.isoformat()}..{period_to.isoformat()}"
+                f"DUZP {d.isoformat()} outside "
+                f"{period_from.isoformat()}..{period_to.isoformat()}"
             )
         if not ExpenseParser.is_eligible_for_odpocet(exp):
             parts: List[str] = []

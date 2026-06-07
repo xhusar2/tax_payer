@@ -83,7 +83,7 @@ python main.py --send-email
 By default it:
 - takes last calendar month as the period,
 - fetches invoices from Fakturoid for that period (`since`/`until` on issued invoices),
-- fetches **paid** expenses in a widened API window and assigns each to a month by **`issued_on`**, else **`taxable_fulfillment_due` (DUZP)**, else **`received_on`** (so an April invoice is not dropped when Fakturoid přijetí/DUZP is set in May),
+- fetches **paid** expenses in a widened API window and assigns each to a month by **`taxable_fulfillment_due` (DUZP) only**; supplier DIČ falls back from the linked Fakturoid subject when missing on the expense row,
 - includes only expenses suitable for full odpočet: `tax_deductible`, no **přenesená daňová povinnost**, `proportional_vat_deduction == 100%`, `status=paid`,
 - writes `dph_YYYYMM.xml` and `dhk_YYYYMM.xml` into `OUTPUT_DIR`.
 
